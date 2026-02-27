@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sleep Log">
+<meta name="theme-color" content="#0f0e17">
+<title>Sleep Log</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1828;
+    --border: #2e2c45;
+    --accent: #c8b8ff;
+    --accent2: #f9c784;
+    --text: #e8e4f0;
+    --muted: #8a85a0;
+    --green: #7efdd0;
+    --orange: #ffb347;
+    --radius: 14px;
+  }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 60px;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, rgba(100,80,200,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(200,150,80,0.08) 0%, transparent 50%);
+  }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* TOP BAR */
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    padding: 16px 20px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: rgba(15,14,23,0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .topbar h1 { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--accent); }
+  .topbar .sub { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+  .btn-nav {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem; padding: 7px 14px; border-radius: 20px;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .btn-nav:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* DRAFT BANNER */
+  .draft-banner {
+    display: none;
+    background: rgba(255,179,71,0.1);
+    border: 1px solid rgba(255,179,71,0.3);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    font-size: 0.85rem;
+    color: var(--orange);
+    line-height: 1.5;
+  }
+  .draft-banner.visible { display: block; }
+  .draft-banner strong { font-weight: 600; }
+
+  /* SECTION LABELS */
+  .section-heading {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 4px 2px 8px;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-heading::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* CONTENT */
+  .content { padding: 16px 16px 20px; max-width: 540px; margin: 0 auto; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px; margin-bottom: 12px;
+  }
+  .card.highlight { border-color: rgba(255,179,71,0.35); }
+
+  .field-label {
+    display: block; font-size: 0.7rem; font-weight: 500;
+    color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.8px; margin-bottom: 10px;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  input[type="time"],
+  input[type="text"],
+  input[type="number"],
+  select,
+  textarea {
+    width: 100%; background: transparent; border: none;
+    border-bottom: 1px solid var(--border); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 1rem;
+    padding: 4px 0 8px; outline: none;
+    -webkit-appearance: none; border-radius: 0;
+  }
+  input:focus, select:focus, textarea:focus { border-bottom-color: var(--accent); outline: none; }
+  select { cursor: pointer; }
+  select option { background: #1a1828; color: var(--text); }
+  input[type="time"]::-webkit-date-and-time-value { text-align: left; }
+  input[type="number"] { -moz-appearance: textfield; }
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* TOGGLE CHIPS */
+  .toggle-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .toggle-group input[type="checkbox"] { display: none; }
+  .chip {
+    font-size: 0.85rem; color: var(--text); background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); border-radius: 20px;
+    padding: 7px 15px; cursor: pointer; user-select: none;
+    -webkit-tap-highlight-color: transparent; transition: all 0.15s;
+    display: inline-block;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .toggle-group input[type="checkbox"]:checked + .chip {
+    background: var(--accent); color: #0f0e17;
+    border-color: var(--accent); font-weight: 600;
+  }
+
+  /* STRESS FACES */
+  .faces { display: flex; gap: 6px; justify-content: space-between; margin-top: 6px; }
+  .face {
+    font-size: 2rem; cursor: pointer; opacity: 0.25;
+    transition: opacity 0.15s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none; display: inline-block; padding: 4px;
+  }
+  .face.active { opacity: 1 !important; transform: scale(1.2); }
+  .face:hover { opacity: 0.7; }
+  .face-labels { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--muted); margin-top: 6px; }
+
+  /* AWAKENINGS */
+  .awake-row { display: grid; grid-template-columns: 70px 1fr; gap: 12px; align-items: end; }
+
+  textarea { resize: vertical; min-height: 60px; padding-top: 6px; }
+
+  /* BUTTONS */
+  .btn-row { display: flex; gap: 10px; margin-top: 8px; }
+  .btn-save {
+    flex: 1; padding: 15px; border-radius: var(--radius); border: none;
+    background: var(--accent); color: #0f0e17;
+    font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 600;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-save:active { transform: scale(0.98); opacity: 0.8; }
+  .btn-draft {
+    flex: 1; padding: 15px; border-radius: var(--radius);
+    border: 1px solid var(--orange); background: transparent;
+    color: var(--orange); font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-draft:active { transform: scale(0.98); opacity: 0.8; }
+  .btn-clear {
+    padding: 15px 18px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .confirm-panel {
+    display: none;
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.35);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .confirm-panel.visible { display: block; }
+  .confirm-text { font-size: 0.88rem; color: #ff9a9a; line-height: 1.5; }
+  .confirm-yes {
+    flex: 1; padding: 10px 16px; border-radius: 10px; border: none;
+    background: #ff6b6b; color: #fff;
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 600;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .confirm-yes:active { opacity: 0.8; }
+  .confirm-no {
+    flex: 1; padding: 10px 16px; border-radius: 10px;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .confirm-no:active { opacity: 0.8; }
+
+  .btn-clear-history {
+    padding: 15px 18px; border-radius: var(--radius);
+    border: 1px solid #ff6b6b; background: transparent;
+    color: #ff6b6b; font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-clear-history:hover { background: rgba(255,107,107,0.1); }
+
+  .btn-export-alt {
+    width: 100%; padding: 15px; border-radius: var(--radius);
+    border: 1px solid var(--accent2); background: transparent;
+    color: var(--accent2); font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; margin-top: 0;
+  }
+
+  /* HISTORY */
+  .h-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
+  .h-date { font-size: 0.8rem; color: var(--accent2); font-weight: 600; margin-bottom: 8px; }
+  .h-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+  .h-cell .lbl { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .h-cell .val { font-size: 0.9rem; color: var(--text); margin-top: 1px; }
+  .h-cell.full { grid-column: 1 / -1; }
+  .no-entries { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 0.9rem; line-height: 2; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    color: #0f0e17; padding: 11px 24px; border-radius: 30px;
+    font-weight: 600; font-size: 0.9rem; opacity: 0;
+    transition: all 0.3s ease; pointer-events: none;
+    white-space: nowrap; z-index: 200;
+    background: var(--green);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.orange { background: var(--orange); }
+</style>
+</head>
+<body>
+
+<!-- ══ MAIN SCREEN ══ -->
+<div id="mainScreen" class="screen active">
+  <div class="topbar">
+    <div>
+      <h1>🌙 Sleep Log</h1>
+      <div class="sub" id="dateBadge"></div>
+    </div>
+    <button class="btn-nav" id="historyBtn">History ↗</button>
+  </div>
+
+  <div class="content">
+
+    <div class="draft-banner" id="draftBanner">
+      📝 <strong>Draft restored</strong> — you saved this partially earlier. Finish filling in the rest and tap <em>Save entry</em> when done.
+    </div>
+
+    <!-- EVENING SECTION -->
+    <div class="section-heading">🌆 Fill in before bed</div>
+
+    <div class="card">
+      <span class="field-label">☕ Caffeine / alcohol today?</span>
+      <div class="toggle-group">
+        <input type="checkbox" id="c1">
+        <label for="c1" class="chip">☕ Caffeine</label>
+        <input type="checkbox" id="c2">
+        <label for="c2" class="chip">🍷 Alcohol</label>
+        <input type="checkbox" id="c3">
+        <label for="c3" class="chip">Neither</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="field-label">💧 Last drink before bed</span>
+      <input type="time" id="lastDrink">
+    </div>
+
+    <div class="card">
+      <span class="field-label">🧠 Stress level today</span>
+      <div class="faces">
+        <span class="face" data-val="1" title="Very low">😌</span>
+        <span class="face" data-val="2" title="Low">😐</span>
+        <span class="face" data-val="3" title="Medium">😤</span>
+        <span class="face" data-val="4" title="High">😰</span>
+        <span class="face" data-val="5" title="Very high">🤯</span>
+      </div>
+      <div class="face-labels"><span>Chill</span><span>Maxed out</span></div>
+    </div>
+
+    <div class="card">
+      <span class="field-label">🏃 Exercise today</span>
+      <select id="exercise">
+        <option value="">— select —</option>
+        <option>None</option>
+        <option>Light (walk, stretch)</option>
+        <option>Moderate (30–60 min)</option>
+        <option>Intense (heavy workout)</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <span class="field-label">🌸 Menstrual phase (optional)</span>
+      <select id="menstrualPhase">
+        <option value="">— skip —</option>
+        <option>Menstruation</option>
+        <option>Follicular</option>
+        <option>Ovulation</option>
+        <option>Luteal</option>
+        <option>N/A</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <span class="field-label">📝 Extra notes</span>
+      <textarea id="notes" placeholder="Anything else…"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-draft" id="draftBtn">Save draft 🌙</button>
+    </div>
+
+    <!-- MORNING SECTION -->
+    <div class="section-heading" style="margin-top:22px">🌅 Fill in next morning</div>
+
+    <div class="card">
+      <div class="row2">
+        <div>
+          <span class="field-label">🛏 Bedtime</span>
+          <input type="time" id="bedtime">
+        </div>
+        <div>
+          <span class="field-label">☀️ Wake-up</span>
+          <input type="time" id="wakeup">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="field-label">😶‍🌫️ Nighttime awakenings</span>
+      <div class="awake-row">
+        <div>
+          <span class="field-label" style="margin-bottom:4px">Count</span>
+          <input type="number" id="awakenings" min="0" max="20" placeholder="0">
+        </div>
+        <div>
+          <span class="field-label" style="margin-bottom:4px">Times</span>
+          <input type="text" id="awakeningTimes" placeholder="e.g. 2am, 4:30am">
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-save" id="saveBtn">Save entry ✓</button>
+      <button class="btn-clear" id="clearBtn">Clear</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ HISTORY SCREEN ══ -->
+<div id="historyScreen" class="screen">
+  <div class="topbar">
+    <div>
+      <h1>📋 History</h1>
+      <div class="sub" id="entryCountLabel"></div>
+    </div>
+    <button class="btn-nav" id="backBtn">← Back</button>
+  </div>
+  <div class="content">
+    <div style="display:flex; gap:10px; margin-bottom:14px;">
+      <button class="btn-export-alt" id="exportBtn" style="flex:1; margin-top:0;">⬇ Export CSV</button>
+      <button class="btn-clear-history" id="clearHistoryBtn">🗑 Clear all</button>
+    </div>
+    <!-- Inline confirmation panel (no confirm() dialog needed) -->
+    <div class="confirm-panel" id="confirmPanel">
+      <p class="confirm-text">⚠️ Delete all entries? This can't be undone. Export a CSV backup first if you need it.</p>
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button class="confirm-yes" id="confirmYes">Yes, delete all</button>
+        <button class="confirm-no" id="confirmNo">Cancel</button>
+      </div>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  var STORAGE_KEY   = 'sleep_log_v3';
+  var DRAFT_KEY     = 'sleep_log_draft';
+  var stressLevel   = '';
+
+  var now = new Date();
+  var days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('dateBadge').textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()];
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  // ── STRESS FACES ──
+  var faces = document.querySelectorAll('.face');
+  function setStress(val) {
+    stressLevel = val;
+    for (var i = 0; i < faces.length; i++) {
+      faces[i].classList.remove('active');
+      if (faces[i].getAttribute('data-val') === val) faces[i].classList.add('active');
+    }
+  }
+  for (var i = 0; i < faces.length; i++) {
+    (function(face) {
+      face.addEventListener('click', function() { setStress(face.getAttribute('data-val')); });
+    })(faces[i]);
+  }
+
+  // ── DRAFT: restore on load ──
+  var draft = null;
+  try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch(e) {}
+  if (draft) {
+    document.getElementById('draftBanner').classList.add('visible');
+    if (draft.c1) document.getElementById('c1').checked = true;
+    if (draft.c2) document.getElementById('c2').checked = true;
+    if (draft.c3) document.getElementById('c3').checked = true;
+    if (draft.lastDrink)       document.getElementById('lastDrink').value       = draft.lastDrink;
+    if (draft.stressLevel)     setStress(draft.stressLevel);
+    if (draft.exercise)        document.getElementById('exercise').value        = draft.exercise;
+    if (draft.menstrualPhase)  document.getElementById('menstrualPhase').value  = draft.menstrualPhase;
+    if (draft.notes)           document.getElementById('notes').value           = draft.notes;
+    if (draft.bedtime)         document.getElementById('bedtime').value         = draft.bedtime;
+    if (draft.wakeup)          document.getElementById('wakeup').value          = draft.wakeup;
+    if (draft.awakenings)      document.getElementById('awakenings').value      = draft.awakenings;
+    if (draft.awakeningTimes)  document.getElementById('awakeningTimes').value  = draft.awakeningTimes;
+  }
+
+  // ── COLLECT FORM ──
+  function collectForm() {
+    return {
+      c1: document.getElementById('c1').checked,
+      c2: document.getElementById('c2').checked,
+      c3: document.getElementById('c3').checked,
+      lastDrink:      document.getElementById('lastDrink').value,
+      stressLevel:    stressLevel,
+      exercise:       document.getElementById('exercise').value,
+      menstrualPhase: document.getElementById('menstrualPhase').value,
+      notes:          document.getElementById('notes').value,
+      bedtime:        document.getElementById('bedtime').value,
+      wakeup:         document.getElementById('wakeup').value,
+      awakenings:     document.getElementById('awakenings').value,
+      awakeningTimes: document.getElementById('awakeningTimes').value
+    };
+  }
+
+  function clearForm() {
+    document.getElementById('c1').checked = false;
+    document.getElementById('c2').checked = false;
+    document.getElementById('c3').checked = false;
+    document.getElementById('lastDrink').value = '';
+    document.getElementById('exercise').value = '';
+    document.getElementById('menstrualPhase').value = '';
+    document.getElementById('notes').value = '';
+    document.getElementById('bedtime').value = '';
+    document.getElementById('wakeup').value = '';
+    document.getElementById('awakenings').value = '';
+    document.getElementById('awakeningTimes').value = '';
+    stressLevel = '';
+    for (var i = 0; i < faces.length; i++) faces[i].classList.remove('active');
+    document.getElementById('draftBanner').classList.remove('visible');
+    localStorage.removeItem(DRAFT_KEY);
+  }
+
+  // ── SAVE DRAFT ──
+  document.getElementById('draftBtn').addEventListener('click', function() {
+    var data = collectForm();
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+      document.getElementById('draftBanner').classList.add('visible');
+      showToast('Draft saved 🌙 See you in the morning', 'orange');
+    } catch(e) {
+      showToast('Could not save draft');
+    }
+  });
+
+  // ── SAVE FINAL ENTRY ──
+  document.getElementById('saveBtn').addEventListener('click', function() {
+    var f = collectForm();
+    var substances = [];
+    if (f.c1) substances.push('Caffeine');
+    if (f.c2) substances.push('Alcohol');
+    if (f.c3) substances.push('Neither');
+
+    var entry = {
+      date:           now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear(),
+      bedtime:        f.bedtime,
+      wakeup:         f.wakeup,
+      lastDrink:      f.lastDrink,
+      substances:     substances.join(' + '),
+      awakenings:     f.awakenings || '0',
+      awakeningTimes: f.awakeningTimes,
+      stressLevel:    f.stressLevel,
+      exercise:       f.exercise,
+      menstrualPhase: f.menstrualPhase,
+      notes:          f.notes
+    };
+
+    var entries = getEntries();
+    entries.unshift(entry);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      localStorage.removeItem(DRAFT_KEY);
+      clearForm();
+      showToast('Entry saved! ✓');
+    } catch(e) {
+      showToast('Error saving — try a different browser');
+    }
+  });
+
+  // ── CLEAR ──
+  document.getElementById('clearBtn').addEventListener('click', function() {
+    if (confirm('Clear all fields and delete any saved draft?')) clearForm();
+  });
+
+  // ── SCREEN SWITCHING ──
+  document.getElementById('historyBtn').addEventListener('click', function() {
+    document.getElementById('mainScreen').classList.remove('active');
+    document.getElementById('historyScreen').classList.add('active');
+    renderHistory();
+    window.scrollTo(0, 0);
+  });
+  document.getElementById('backBtn').addEventListener('click', function() {
+    document.getElementById('historyScreen').classList.remove('active');
+    document.getElementById('mainScreen').classList.add('active');
+    window.scrollTo(0, 0);
+  });
+
+  // ── HISTORY ──
+  function getEntries() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch(e) { return []; }
+  }
+
+  function renderHistory() {
+    var entries = getEntries();
+    document.getElementById('entryCountLabel').textContent = entries.length + ' entr' + (entries.length === 1 ? 'y' : 'ies') + ' saved';
+    var list = document.getElementById('historyList');
+    if (!entries.length) {
+      list.innerHTML = '<p class="no-entries">No entries yet.<br>Fill in tonight\'s log first! 🌙</p>';
+      return;
+    }
+    var faceMap = {'1':'😌','2':'😐','3':'😤','4':'😰','5':'🤯'};
+    list.innerHTML = entries.map(function(e) {
+      var cells = [];
+      if (e.bedtime)    cells.push('<div class="h-cell"><div class="lbl">Bed</div><div class="val">'       + e.bedtime    + '</div></div>');
+      if (e.wakeup)     cells.push('<div class="h-cell"><div class="lbl">Wake</div><div class="val">'      + e.wakeup     + '</div></div>');
+      if (e.lastDrink)  cells.push('<div class="h-cell"><div class="lbl">Last drink</div><div class="val">'+ e.lastDrink  + '</div></div>');
+      if (e.substances) cells.push('<div class="h-cell"><div class="lbl">Substances</div><div class="val">'+ e.substances + '</div></div>');
+      if (e.awakenings && e.awakenings !== '0')
+        cells.push('<div class="h-cell"><div class="lbl">Awakenings</div><div class="val">' + e.awakenings + (e.awakeningTimes ? ' · ' + e.awakeningTimes : '') + '</div></div>');
+      if (e.stressLevel)
+        cells.push('<div class="h-cell"><div class="lbl">Stress</div><div class="val">' + (faceMap[e.stressLevel]||'') + ' ' + e.stressLevel + '/5</div></div>');
+      if (e.exercise)
+        cells.push('<div class="h-cell full"><div class="lbl">Exercise</div><div class="val">' + e.exercise + '</div></div>');
+      if (e.menstrualPhase)
+        cells.push('<div class="h-cell"><div class="lbl">Phase</div><div class="val">' + e.menstrualPhase + '</div></div>');
+      if (e.notes)
+        cells.push('<div class="h-cell full"><div class="lbl">Notes</div><div class="val">' + e.notes + '</div></div>');
+      return '<div class="h-item"><div class="h-date">' + e.date + '</div><div class="h-grid">' + cells.join('') + '</div></div>';
+    }).join('');
+  }
+
+  // ── EXPORT CSV ──
+  document.getElementById('exportBtn').addEventListener('click', function() {
+    var entries = getEntries();
+    if (!entries.length) { showToast('No entries to export yet!'); return; }
+    var headers = ['Date','Bedtime','Wake-up','Last Drink','Substances','Awakenings','Awakening Times','Stress (1-5)','Exercise','Menstrual Phase','Notes'];
+    var rows = entries.map(function(e) {
+      return [e.date, e.bedtime, e.wakeup, e.lastDrink, e.substances,
+              e.awakenings, e.awakeningTimes, e.stressLevel,
+              e.exercise, e.menstrualPhase, (e.notes||'').replace(/"/g,'""')]
+        .map(function(v) { return '"' + (v||'') + '"'; }).join(',');
+    });
+    var csv = [headers.join(',')].concat(rows).join('\n');
+    var blob = new Blob([csv], {type:'text/csv'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href   = url;
+    a.download = 'sleep_log_' + now.toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Exported ' + entries.length + ' entries ✓');
+  });
+
+  // ── CLEAR HISTORY ──
+  document.getElementById('clearHistoryBtn').addEventListener('click', function() {
+    var entries = getEntries();
+    if (!entries.length) { showToast('No entries to clear!'); return; }
+    document.getElementById('confirmPanel').classList.add('visible');
+    document.getElementById('clearHistoryBtn').style.display = 'none';
+  });
+  document.getElementById('confirmNo').addEventListener('click', function() {
+    document.getElementById('confirmPanel').classList.remove('visible');
+    document.getElementById('clearHistoryBtn').style.display = '';
+  });
+  document.getElementById('confirmYes').addEventListener('click', function() {
+    localStorage.removeItem(STORAGE_KEY);
+    document.getElementById('confirmPanel').classList.remove('visible');
+    document.getElementById('clearHistoryBtn').style.display = '';
+    renderHistory();
+    showToast('All entries deleted');
+  });
+
+  // ── TOAST ──
+  function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (type === 'orange' ? ' orange' : '') + ' show';
+    setTimeout(function() { t.className = 'toast' + (type === 'orange' ? ' orange' : ''); }, 3200);
+  }
+
+})();
+</script>
+</body>
+</html>
