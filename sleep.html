@@ -40,7 +40,7 @@
   /* TOP BAR */
   .topbar {
     position: sticky; top: 0; z-index: 10;
-    padding: 16px 20px 12px;
+    padding: calc(env(safe-area-inset-top, 16px) + 16px) 20px 12px;
     display: flex; justify-content: space-between; align-items: center;
     border-bottom: 1px solid var(--border);
     background: rgba(15,14,23,0.92);
